@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confluency — Daily Cell Biology Game</title>
+  <style>
+    :root {
+      --bg: #111318;
+      --surface: #1c2030;
+      --surface2: #252a3a;
+      --border: #2e3450;
+      --accent: #4dd9a0;
+      --accent-dim: #2a7a5c;
+      --accent2: #7eb8f7;
+      --text: #e8ecf4;
+      --text-dim: #7a8299;
+      --red: #f87171;
+      --yellow: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      max-width: 560px;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .logo-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .day-badge {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .info-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 50%;
+      width: 28px; height: 28px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    main {
+      width: 100%;
+      max-width: 560px;
+      padding: 20px 16px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .prompt {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ── Canvas ── */
+    .canvas-wrap {
+      position: relative;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 3px var(--border),
+        0 0 0 6px var(--surface),
+        0 12px 40px rgba(0,0,0,0.55);
+    }
+    #cellCanvas { display: block; border-radius: 50%; }
+
+    /* ── Controls ── */
+    .controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .slider-area {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      padding: 0 2px;
+      margin-top: -6px;
+    }
+
+    #guessSlider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    #guessSlider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+    }
+    #guessSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      margin-top: -9px;
+    }
+    #guessSlider::-moz-range-thumb {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    .guess-val {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 68px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #submitBtn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #0a0f0c;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #submitBtn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    #submitBtn:active:not(:disabled) { transform: translateY(0); }
+    #submitBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Result ── */
+    #result {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 20px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .result-heading {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+    }
+    .result-score-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .result-score {
+      font-size: 3.5rem;
+      font-weight: 900;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .result-score-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .result-verdict {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .result-bars {
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+    }
+    .result-compare {
+      display: flex;
+      gap: 36px;
+      justify-content: center;
+    }
+    .result-compare-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .result-compare-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+    }
+    .result-compare-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .val-guess { color: var(--accent); }
+    .val-actual { color: var(--accent2); }
+    .val-error { color: var(--text-dim); font-size: 1.1rem; font-weight: 600; }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    .share-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      text-align: center;
+    }
+    .share-btn:hover { background: var(--border); border-color: var(--accent-dim); }
+
+    .result-next {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+    #countdown { color: var(--accent); font-weight: 600; }
+
+    /* ── Info modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      max-width: 420px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.3rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal p {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.65;
+    }
+    .modal p strong { color: var(--text); }
+    .modal hr { border: none; border-top: 1px solid var(--border); }
+    .score-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .score-table td {
+      padding: 4px 8px;
+      color: var(--text-dim);
+    }
+    .score-table td:first-child {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .score-table td:last-child { color: var(--accent); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 16px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-title">🔬 Confluency</span>
+    <span class="logo-sub">DLE</span>
+  </div>
+  <div class="header-right">
+    <span class="day-badge" id="dayBadge">Day #—</span>
+    <button class="info-btn" id="infoBtn" title="How to play">?</button>
+    <button class="info-btn" id="resetBtn" title="Reset today's guess (troubleshoot)">↺</button>
+  </div>
+</header>
+
+<main>
+  <p class="prompt">Estimate the percentage of the dish covered by cells.</p>
+
+  <div class="canvas-wrap">
+    <canvas id="cellCanvas" width="440" height="440"></canvas>
+  </div>
+
+  <div class="controls" id="controls">
+    <div class="slider-area">
+      <input type="range" id="guessSlider" min="0" max="100" value="50" step="1">
+      <span class="guess-val" id="guessVal">50%</span>
+    </div>
+    <div class="slider-labels">
+      <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+    </div>
+    <button id="submitBtn">Submit Guess</button>
+  </div>
+
+  <div id="result">
+    <div class="result-heading">Today's Result</div>
+    <div class="result-score-wrap">
+      <div class="result-score" id="scoreNum">—</div>
+      <div class="result-score-label">/ 100</div>
+    </div>
+    <div class="result-verdict" id="verdict">—</div>
+    <div class="result-bars" id="bars"></div>
+    <div class="result-compare">
+      <div class="result-compare-item">
+        <span class="result-compare-label">Your Guess</span>
+        <span class="result-compare-val val-guess" id="dispGuess">—</span>
+      </div>
+      <div class="result-compare-item">
+        <span class="result-compare-label">Off by</span>
+        <span class="result-compare-val val-error" id="dispError">—</span>
+      </div>
+      <div class="result-compare-item">
+        <span class="result-compare-label">Actual</span>
+        <span class="result-compare-val val-actual" id="dispActual">—</span>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button class="share-btn" id="shareBtn">📋 Copy Result</button>
+    </div>
+    <div class="result-next">Next image in <span id="countdown">—</span></div>
+  </div>
+</main>
+
+<footer>A new cell image every day &mdash; come back tomorrow!</footer>
+
+<!-- Info Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">How to Play</span>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <p>
+      <strong>Cell confluency</strong> is the percentage of a culture dish's surface area
+      covered by cells. Scientists check it before every experiment — it affects
+      cell behavior and experimental results.
+    </p>
+    <p>
+      Each day you get a new stylized image of a HEK293 cell culture at a random
+      confluency. Use the slider to estimate the coverage percentage, then submit.
+    </p>
+    <hr>
+    <p><strong>Scoring</strong> — based on how close your guess is:</p>
+    <table class="score-table">
+      <tr><td>Within 5%</td><td>Excellent!</td><td>≥ 90 pts</td></tr>
+      <tr><td>Within 10%</td><td>Great</td><td>≥ 80 pts</td></tr>
+      <tr><td>Within 20%</td><td>Good</td><td>≥ 60 pts</td></tr>
+      <tr><td>Within 30%</td><td>Fair</td><td>≥ 40 pts</td></tr>
+      <tr><td>More than 30%</td><td>Keep practicing</td><td>< 40 pts</td></tr>
+    </table>
+    <p>One image per day. The image resets at midnight local time.</p>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  PRNG  (mulberry32 — deterministic, fast)
+// ─────────────────────────────────────────────
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// FNV-1a hash → u32
+function fnv1a(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+// ─────────────────────────────────────────────
+//  Daily parameters
+// ─────────────────────────────────────────────
+const EPOCH = new Date(2025, 0, 1); // Day 1 = Jan 1 2025
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function dayNumber() {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today - EPOCH) / 86400000) + 1;
+}
+
+const SEED = fnv1a('confluency-v1-' + todayKey());
+const rng0 = mulberry32(SEED);
+// Confluency: 5–95%, weighted slightly toward mid-range for variety
+const TARGET = Math.round(rng0() * 90 + 5);
+
+document.getElementById('dayBadge').textContent = `Day #${dayNumber()}`;
+
+// ─────────────────────────────────────────────
+//  Canvas setup
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('cellCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const CX = W / 2, CY = H / 2;
+const DISH_R = W * 0.466; // ~205 px
+
+// ─────────────────────────────────────────────
+//  Cell blob geometry
+//  Modelled after the HekCells0001.svg illustration:
+//  large flat irregular blobs, elongated aspect ratios,
+//  occasional protrusion-like extensions.
+// ─────────────────────────────────────────────
+// SVG cell bank — path `d` strings and nucleus positions extracted from GenericCells0002.svg
+// Each entry: { d, nucX, nucY, nucR } — nucleus coordinates are in the SVG's 500×500 space
+const RAW_CELLS = [
+  { d: "M392.91,303.51s12.84-2.53,21.67-17.47c8.84-14.94,4.84-36.41-2.31-50.92-7.15-14.52-27.15-32.41-36.41-33.67s-27.99,8.42-38.3,15.36c-10.31,6.94-40.4,38.72-40.82,52.61-.42,13.89,5.47,36.19,29.67,39.77s66.5-5.68,66.5-5.68Z", nucX: 367.23, nucY: 255.11, nucR: 23.99 },
+  { d: "M125.29,397.62s-9,10.1-8.52,30.93c.47,20.83,21.94,39.93,42.46,39.93s34.25-7.26,47.19-16.73c12.94-9.47,13.26-25.25,11.52-39.14-1.74-13.89-40.25-35.2-53.19-38.83s-35.67,18.94-39.46,23.83Z", nucX: 164.59, nucY: 423.03, nucR: 23.99 },
+  { d: "M327.78,101.39c1.42-.47,22.57-14.36,37.88-11.36,15.31,3,36.14,9.31,47.51,37.4s-11.68,63.29-24.31,71.65c-12.63,8.36-35.35,4.89-47.35,1.26-11.99-3.63-39.77-25.09-44.82-40.72s-3.16-28.09,3.63-36.3c6.79-8.21,27.46-21.94,27.46-21.94Z", nucX: 356.5, nucY: 140.21, nucR: 23.99 },
+  { d: "M243.81,178.56s4.26-20.68,21.78-28.25c17.52-7.58,35.2-4.42,47.66.95,12.47,5.37,33.93,26.51,38.83,38.51,4.89,11.99,1.74,40.72-7.89,50.35-9.63,9.63-23.67,13.57-45.61,6.31-21.94-7.26-53.19-35.04-58.4-46.72-5.21-11.68,3.63-21.15,3.63-21.15Z", nucX: 288.95, nucY: 194.5, nucR: 23.99 },
+  { d: "M209.41,152.68s21.94-2.68,31.09,4.26c9.15,6.94,24.46,40.72,23.83,55.55-.63,14.84-14.05,23.83-24.62,29.51-10.57,5.68-53.82,8.52-62.81,3.47-9-5.05-17.99-28.72-17.99-40.25s4.89-29.83,13.73-37.56c8.84-7.73,27.94-14.36,36.77-14.99Z", nucX: 210.04, nucY: 200.82, nucR: 23.99 },
+  { d: "M254.44,287.51s4.42,6.73,0,21.25c-4.42,14.52-21.04,30.72-37.04,35.56-15.99,4.84-38.93-3.16-47.14-8.84-8.21-5.68-18.1-14.73-21.89-25.88-3.79-11.15-4.84-35.35-.42-47.56,4.42-12.21,17.68-21.89,28.41-24.62,10.73-2.74,49.66,3.58,55.34,6.1s21.46,38.09,22.73,43.98Z", nucX: 191.73, nucY: 288.57, nucR: 23.99 },
+  { d: "M235.5,214.07c5.58-4.49,30.72-18.1,51.56-12.42,20.83,5.68,27.99,15.99,32.41,35.98,4.42,19.99-9.68,37.25-17.05,43.77-7.37,6.52-38.72,13.68-50.5,10.1-11.78-3.58-30.3-28.2-31.35-41.88-1.05-13.68,5.26-27.78,14.94-35.56Z", nucX: 266.86, nucY: 245.01, nucR: 23.99 },
+  { d: "M97.04,304.98c16.52-2.24,44.19-.42,51.56,5.68,7.37,6.1,14.1,14.31,13.89,28.41-.21,14.1-4.21,29.67-11.15,40.4-6.94,10.73-24.2,25.25-37.25,28.41-13.05,3.16-40.82-5.47-53.66-15.36-12.84-9.89-14.31-45.66-6.1-57.87,8.21-12.21,25.67-27.36,42.72-29.67Z", nucX: 102.72, nucY: 359.27, nucR: 23.99 },
+  { d: "M129.86,172.72c13.24,2.24,40.72-12.63,55.71-30.62,14.99-17.99,1.74-48.93-8.84-57.61-10.57-8.68-44.19-16.89-63.92-11.05-19.73,5.84-30.93,35.83-32.83,49.87-1.89,14.05,6,41.98,49.87,49.4Z", nucX: 137.44, nucY: 122.53, nucR: 23.99 },
+  { d: "M135.23,191.14c8.96,4.61,19.15,15.26,23.15,29.25,4,13.99,5.79,14.1-3.16,26.41s-13.89,27.78-20.94,36.19c-7.05,8.42-28.41,19.47-41.14,18.94-12.73-.53-46.93-20.31-52.92-39.35-6-19.04,5.37-51.98,17.78-62.71,12.42-10.73,45.14-25.25,77.23-8.73Z", nucX: 94.51, nucY: 243.74, nucR: 23.99 },
+  { d: "M459.09,163.57c6.21,1.14,29.36,10.42,34.09,19.89,4.73,9.47,7.42,29.83-.16,43.88-7.58,14.05-29.67,23.2-44.35,23.2s-36.3-9.94-44.66-22.1c-8.36-12.15-4.26-32.99,5.37-45.3,9.63-12.31,27.46-23.67,49.71-19.57Z", nucX: 443.62, nucY: 203.97, nucR: 23.99 },
+  { d: "M348.61,310.19s15.94-22.57,38.98-18.62c23.04,3.95,35.2,30.93,37.56,49.87,2.37,18.94-19.25,50.03-37.72,52.56-18.47,2.53-30.3,7.58-44.03-2.68-13.73-10.26-16.57-65.5,5.21-81.12Z", nucX: 352.08, nucY: 342.86, nucR: 23.99 },
+  { d: "M305.52,261.26s29.51,4.26,40.88,18.94c11.36,14.68,14.68,34.72,8.36,50.03-6.31,15.31-25.41,33.93-44.03,30.62-18.62-3.31-37.72-7.26-49.4-22.41s-10.57-21.78-10.42-34.09,23.99-43.56,54.61-43.09Z", nucX: 308.52, nucY: 303.72, nucR: 23.99 },
+  { d: "M261.17,395.26c7.58-14.99,7.73-32.83,3.63-40.88s-17.52-20.83-36.14-30.3c-18.62-9.47-45.14,4.26-55.4,9.63-10.26,5.37-16.73,20.2-18.15,29.51-1.42,9.31,5.05,47.82,29.99,57.45,24.94,9.63,68.5-10.42,76.07-25.41Z", nucX: 204.36, nucY: 372.53, nucR: 23.99 },
+  { d: "M331.25,422.4c17.05-6,26.36-24.31,28.41-39.14,2.05-14.84-18.15-34.41-35.67-43.56-17.52-9.15-58.87-17.52-79.23,4.1-20.36,21.62,7.58,65.5,25.09,74.34,17.52,8.84,44.35,10.26,61.39,4.26Z", nucX: 303.47, nucY: 383.26, nucR: 23.99 },
+  { d: "M328.51,98.97s5.89-5.26,3.79-13.68c-2.1-8.42-30.3-31.78-47.35-34.72-17.05-2.95-35.56,4-45.03,15.57-9.47,11.57-9.26,37.46-1.68,52.4,7.58,14.94,14.94,24.2,27.78,25.04,12.84.84,22.31,4.21,24.62-.42,2.31-4.63,6.52-19.99,13.89-25.04,7.37-5.05,23.99-19.15,23.99-19.15Z", nucX: 273.48, nucY: 91.92, nucR: 21.78 },
+];
+
+// Rasterise each path on a hidden canvas to find its bounding box & centre.
+function buildCellBank() {
+  const OW = 510, OH = 510;
+  const off = document.createElement('canvas');
+  off.width = OW; off.height = OH;
+  const oc = off.getContext('2d');
+  return RAW_CELLS.map(cell => {
+    oc.clearRect(0, 0, OW, OH);
+    oc.fillStyle = '#000';
+    const p = new Path2D(cell.d);
+    oc.fill(p);
+    const px = oc.getImageData(0, 0, OW, OH).data;
+    let x0 = OW, x1 = 0, y0 = OH, y1 = 0;
+    for (let y = 0; y < OH; y++) {
+      for (let x = 0; x < OW; x++) {
+        if (px[(y * OW + x) * 4 + 3] > 0) {
+          if (x < x0) x0 = x; if (x > x1) x1 = x;
+          if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+      }
+    }
+    return { path: p, cx: (x0+x1)/2, cy: (y0+y1)/2, w: Math.max(x1-x0,1), h: Math.max(y1-y0,1),
+             nucX: cell.nucX, nucY: cell.nucY, nucR: cell.nucR };
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Cell generation  (Poisson-parking-inspired)
+// ─────────────────────────────────────────────
+function generateCells(confluency, seed, bank) {
+  const rng = mulberry32(seed ^ 0xdeadbeef);
+  const cells = [];
+
+  const avgDisplayDiam = 80;
+  const cellArea = Math.PI * (avgDisplayDiam / 2) ** 2;
+  const placeR = DISH_R + 60;
+  const c = Math.min(confluency / 100, 0.96);
+  const placeArea = Math.PI * placeR * placeR;
+  const targetN = Math.max(2, Math.round(-Math.log(1 - c) * placeArea / cellArea));
+  const minDistFactor = 2.0 - 1.3 * (confluency / 100);
+
+  let attempts = 0;
+  while (cells.length < targetN && attempts < targetN * 30) {
+    attempts++;
+    const angle = rng() * Math.PI * 2;
+    const dist = Math.sqrt(rng()) * placeR;
+    const x = CX + Math.cos(angle) * dist;
+    const y = CY + Math.sin(angle) * dist;
+    const shapeIdx = Math.floor(rng() * bank.length);
+    const shape = bank[shapeIdx];
+    const targetMajor = 55 + rng() * 55;
+    const scale = targetMajor / Math.max(shape.w, shape.h);
+    const displayR = targetMajor / 2;
+    const rotation = rng() * Math.PI * 2;
+    const flipX = rng() < 0.5;
+    const flipY = rng() < 0.5;
+    const cellSeed = (rng() * 0xffffff) | 0;
+
+    let ok = true;
+    for (const existing of cells) {
+      const dx = x - existing.x, dy = y - existing.y;
+      if (dx*dx + dy*dy < (displayR + existing.displayR)**2 * minDistFactor**2) { ok = false; break; }
+    }
+    if (ok) cells.push({ x, y, shapeIdx, scale, rotation, flipX, flipY, displayR, seed: cellSeed });
+  }
+
+  return cells;
+}
+
+// ─────────────────────────────────────────────
+//  Rendering  — colours from GenericCells0002.svg
+//  Cell body:  fill #f0eeea, stroke #565655 2.44px
+//  Nucleus:    fill #c9c7bb, mix-blend-mode multiply
+// ─────────────────────────────────────────────
+function applyTransform(cell, shape) {
+  ctx.translate(cell.x, cell.y);
+  ctx.rotate(cell.rotation);
+  ctx.scale(cell.flipX ? -1 : 1, cell.flipY ? -1 : 1);
+  ctx.scale(cell.scale, cell.scale);
+  ctx.translate(-shape.cx, -shape.cy);
+}
+
+function drawScene(cells, bank) {
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Dish background ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, DISH_R, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.fillStyle = '#f5f4f1';
+  ctx.fillRect(0, 0, W, H);
+
+  const dishGrad = ctx.createRadialGradient(CX - DISH_R * 0.2, CY - DISH_R * 0.25, 0, CX, CY, DISH_R);
+  dishGrad.addColorStop(0, 'rgba(255,255,255,0.35)');
+  dishGrad.addColorStop(0.65, 'rgba(255,255,255,0)');
+  dishGrad.addColorStop(1, 'rgba(0,0,0,0.10)');
+  ctx.fillStyle = dishGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.restore();
+
+  // ── Pass 1: cell body fills ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, DISH_R - 1, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#f0eeea';
+
+  for (const cell of cells) {
+    const shape = bank[cell.shapeIdx];
+    ctx.save();
+    applyTransform(cell, shape);
+    ctx.fill(shape.path);
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // ── Pass 2: cell body strokes ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, DISH_R - 1, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.strokeStyle = '#565655';
+  ctx.lineWidth = 2.44;
+
+  for (const cell of cells) {
+    const shape = bank[cell.shapeIdx];
+    ctx.save();
+    applyTransform(cell, shape);
+    ctx.stroke(shape.path);
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // ── Pass 3: nuclei — gray ellipses with multiply blend ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, DISH_R - 1, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.globalCompositeOperation = 'multiply';
+
+  for (const cell of cells) {
+    const shape = bank[cell.shapeIdx];
+
+    ctx.save();
+    applyTransform(cell, shape);
+    ctx.beginPath();
+    ctx.arc(shape.nucX, shape.nucY, shape.nucR, 0, Math.PI * 2);
+    ctx.fillStyle = '#c9c7bb';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // ── Dish rim ──
+  ctx.beginPath();
+  ctx.arc(CX, CY, DISH_R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#565655';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+// ─────────────────────────────────────────────
+//  Main render
+// ─────────────────────────────────────────────
+const BANK = buildCellBank();
+const CELLS = generateCells(TARGET, SEED, BANK);
+drawScene(CELLS, BANK);
+
+// ─────────────────────────────────────────────
+//  UI — slider
+// ─────────────────────────────────────────────
+const slider = document.getElementById('guessSlider');
+const guessValEl = document.getElementById('guessVal');
+
+slider.addEventListener('input', () => {
+  guessValEl.textContent = slider.value + '%';
+});
+
+// ─────────────────────────────────────────────
+//  UI — submit
+// ─────────────────────────────────────────────
+function scoreVerdict(score) {
+  if (score >= 90) return { text: 'Excellent! 🎉', color: 'var(--accent)' };
+  if (score >= 80) return { text: 'Great! 👍', color: 'var(--accent)' };
+  if (score >= 60) return { text: 'Good 🙂', color: 'var(--yellow)' };
+  if (score >= 40) return { text: 'Fair 🤔', color: 'var(--yellow)' };
+  return { text: 'Keep practicing 🔬', color: 'var(--red)' };
+}
+
+function showResult(guess, actual, score) {
+  const error = Math.abs(guess - actual);
+  const filled = Math.round(score / 10);
+  const bars = '🟩'.repeat(filled) + '⬜'.repeat(10 - filled);
+  const verdict = scoreVerdict(score);
+
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('scoreNum').style.color = verdict.color;
+  document.getElementById('verdict').textContent = verdict.text;
+  document.getElementById('verdict').style.color = verdict.color;
+  document.getElementById('bars').textContent = bars;
+  document.getElementById('dispGuess').textContent = guess + '%';
+  document.getElementById('dispActual').textContent = actual + '%';
+  document.getElementById('dispError').textContent = (error === 0 ? '±0%' : `±${error}%`);
+
+  document.getElementById('controls').style.display = 'none';
+  const resultEl = document.getElementById('result');
+  resultEl.style.display = 'flex';
+
+  startCountdown();
+}
+
+document.getElementById('submitBtn').addEventListener('click', () => {
+  const guess = parseInt(slider.value, 10);
+  const error = Math.abs(guess - TARGET);
+  const score = Math.max(0, Math.round(100 - error * 2));
+
+  // Persist
+  localStorage.setItem('confluency_' + todayKey(), JSON.stringify({
+    guess, actual: TARGET, score,
+    bars: '🟩'.repeat(Math.round(score / 10)) + '⬜'.repeat(10 - Math.round(score / 10)),
+  }));
+
+  showResult(guess, TARGET, score);
+});
+
+// ─────────────────────────────────────────────
+//  UI — share
+// ─────────────────────────────────────────────
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const guess = document.getElementById('dispGuess').textContent;
+  const actual = document.getElementById('dispActual').textContent;
+  const score = document.getElementById('scoreNum').textContent;
+  const bars = document.getElementById('bars').textContent;
+  const day = document.getElementById('dayBadge').textContent;
+
+  const text = [
+    `🔬 Confluency ${day}`,
+    `Score: ${score}/100`,
+    bars,
+    `Guess: ${guess}  |  Actual: ${actual}`,
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy Result'; }, 2000);
+  }).catch(() => {
+    prompt('Copy result:', text);
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Countdown to next image
+// ─────────────────────────────────────────────
+function startCountdown() {
+  function tick() {
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const ms = tomorrow - now;
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    document.getElementById('countdown').textContent =
+      `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ─────────────────────────────────────────────
+//  Check if already played today
+// ─────────────────────────────────────────────
+(function checkSaved() {
+  const saved = localStorage.getItem('confluency_' + todayKey());
+  if (!saved) return;
+  try {
+    const { guess, actual, score } = JSON.parse(saved);
+    slider.value = guess;
+    guessValEl.textContent = guess + '%';
+    showResult(guess, actual, score);
+  } catch (_) { /* ignore corrupt data */ }
+})();
+
+// ─────────────────────────────────────────────
+//  Info modal
+// ─────────────────────────────────────────────
+const overlay = document.getElementById('modalOverlay');
+document.getElementById('infoBtn').addEventListener('click', () => overlay.classList.add('open'));
+document.getElementById('modalClose').addEventListener('click', () => overlay.classList.remove('open'));
+overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+// ─────────────────────────────────────────────
+//  Reset button — clear today's guess
+// ─────────────────────────────────────────────
+document.getElementById('resetBtn').addEventListener('click', () => {
+  localStorage.removeItem('confluency_' + todayKey());
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('controls').style.display = '';
+  slider.value = 50;
+  guessValEl.textContent = '50%';
+  document.getElementById('submitBtn').disabled = false;
+});
+</script>
+</body>
+</html>
