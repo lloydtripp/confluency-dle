@@ -780,7 +780,6 @@ document.getElementById('shareBtn').addEventListener('click', () => {
     `🔬 Confluency ${day}`,
     `Score: ${score}/100`,
     bars,
-    `Guess: ${guess}  |  Actual: ${actual}`,
   ].join('\n');
 
   navigator.clipboard.writeText(text).then(() => {
